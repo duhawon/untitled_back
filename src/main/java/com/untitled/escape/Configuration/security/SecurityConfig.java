@@ -13,8 +13,34 @@ import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 public class SecurityConfig {
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    private final CorsConfigurationSource corsConfigurationSource;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, @Qualifier("customCorsConfig") CorsConfigurationSource corsConfigurationSource) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.corsConfigurationSource = corsConfigurationSource;
+    }
+
     @Bean
     PasswordEncoder passwordEncoder() {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception{
+        httpSecurity
+                .csrf((csrfConfig) ->
+                        csrfConfig.disable())
+                .cors(cors-> cors.configurationSource(corsConfigurationSource))
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .httpBasic(httpbc -> httpbc.disable())
+                .exceptionHandling(ex -> {
+                    ex.accessDeniedHandler(new CustomAccessDeniedHandler());
+                    ex.authenticationEntryPoint(new CustomAuthenticationEntryPoint());
+                })
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        return httpSecurity.build();
     }
 }
